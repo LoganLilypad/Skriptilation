@@ -1,0 +1,103 @@
+aliases:
+	#blocks without collision
+	nonsolid = 0, 6, 8, 9, 10, 11, 10, 31:0-1, 37, 38:0-8, 78, 171:0-15, 175:0-5
+
+on join:
+    set {%player%.speed} to .3
+    set {%player%.hasItem} to false
+
+command /spawn:
+    trigger:
+        spawn a minecart at player
+        make the last spawned entity ride a silverfish
+        make the player ride the last spawned entity
+        make console execute command "/execute %player% ~ ~ ~ entitydata @e[type=minecart,r=1,c=1] {Invulnerable:1,NoGravity:1}"
+        make console execute command "/execute %player% ~ ~ ~ entitydata @e[type=silverfish,r=1,c=1] {Invulnerable:1,Attributes:[{Name:generic.movementSpeed,Base:0},{Name:generic.attackDamage,Base:0}],Silent:1,ActiveEffects:[{Id:14,Amplifier:0,Duration:20000000,ShowParticles:0b}]}"
+       
+on dismount:
+    if event-entity is player:
+        set {%player%.inCart} to false
+        make console execute command "/execute %player% ~ ~ ~ minecraft:kill @e[type=minecart,r=1,c=1]"
+        make console execute command "/execute %player% ~ ~ ~ minecraft:kill @e[type=silverfish,r=1,c=1]"
+        
+on mount:
+    if event-entity is player:
+        set {%player%.inCart} to true
+        
+every tick:
+    loop all players:
+        if {%loop-player%.inCart} is true:
+            loop all entities in radius .5 around loop-player:
+                if loop-entity-2 is not player or minecart:
+                    if loop-entity-2 is a silverfish:
+                        if the block above the block above the block below loop-player is nonsolid:
+                            push loop-entity-2 in the horizontal direction of loop-player at speed {%loop-player%.speed}
+                    
+
+every tick:
+    loop all players:
+        if {%loop-player%.inCart} is true:
+            if block above the block horizontally infront of the loop-player is not nonsolid:
+                if block above the block above the block horizontally infront of the loop-player is nonsolid:
+                    make console execute command "/execute %loop-player% ~ ~ ~ minecraft:tp @e[type=silverfish,r=1,c=1] ~ ~1 ~"
+                    
+every 5 ticks:
+    loop all players:
+        if {%loop-player%.inCart} is true:                    
+            if block above the block below loop-player is water:
+                force loop-player to dismount
+                set {%loop-player%.speed} to 0
+                wait 5 ticks
+                make console execute command "/execute %loop-player% ~ ~ ~ execute @e[type=armor_stand,tag=checkpoint,c=1] ~ ~ ~ minecraft:teleport %loop-player% ~ ~3 ~"
+                spawn a minecart at loop-player
+                make the last spawned entity ride a silverfish
+                make the loop-player ride the last spawned entity
+                make console execute command "/execute %loop-player% ~ ~ ~ entitydata @e[type=minecart,r=1,c=1] {Invulnerable:1,NoGravity:1}"
+                make console execute command "/execute %loop-player% ~ ~ ~ entitydata @e[type=silverfish,r=1,c=1] {Invulnerable:1,Attributes:[{Name:generic.movementSpeed,Base:0},{Name:generic.attackDamage,Base:0}],Silent:1,ActiveEffects:[{Id:14,Amplifier:0,Duration:20000000,ShowParticles:0b}]}"
+                wait 30 ticks
+                set {%loop-player%.speed} to .1
+                wait 10 ticks
+                set {%loop-player%.speed} to .2
+                wait 10 ticks
+                set {%loop-player%.speed} to .3
+                    
+command /speed [<number>]:
+    trigger:
+        set {%player%.speed} to arg-1
+
+
+
+
+
+
+
+every 5 ticks:
+    loop all players:
+        if {%loop-player%.inCart} is true:
+            
+#Super Boost
+            if block above the block above the block below loop-player is light green carpet:
+                make console execute command "/playsound entity.enderdragon.shoot master %loop-player% ~ ~ ~ 100"
+                make console execute command "/effect %loop-player% speed 1 100 true"
+                loop all entities in radius .5 around loop-player:
+                    if loop-entity-2 is not player or minecart:
+                        if loop-entity-2 is silverfish:
+                            push loop-entity-2 upwards at speed 1
+                            push loop-entity-2 in the horizontal direction of loop-player at speed 1
+#Bump Jump
+            else if block above the block above the block below loop-player is light blue carpet:
+                loop all entities in radius .5 around loop-player:
+                    if loop-entity-2 is not player or minecart:
+                        if loop-entity-2 is silverfish:
+                            push loop-entity-2 upwards at speed 2
+                            push loop-entity-2 in the horizontal direction of loop-player at speed .5
+
+
+
+on explode:
+    cancel event
+
+
+command /midi:
+    trigger:
+        play midi "Lean" to player
