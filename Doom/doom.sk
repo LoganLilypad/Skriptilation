@@ -27,7 +27,6 @@ function doom_Raycast(x: number, y: number, r: number):
     set {_r} to {_r} - {gameFOV}
     loop {gameFOV} * 2 times:
         #wait 1 tick
-        kill all armor stands
         loop 60 times:
             if loop-value-2 > 1:
                 set {_i} to loop-value-2 * .25
