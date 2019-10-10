@@ -1,0 +1,79 @@
+on load:
+    set {gamePos::*} to 0 and 0
+    set {gameRot} to 0
+    set {gameFOV} to 64
+    set {gameReady} to false
+
+on map:
+    set {gameOut} to event-map
+    manage map {gameOut}
+    set {gameReady} to true
+    broadcast "&aReady"
+
+function doom_SetPixel(x: number, y: number, c: number):
+    set map pixle at {_x}, {_y} on map {gameOut} to {_c}
+
+function doom_DrawFloor(c: number):
+    loop 128 times:
+        loop 64 times:
+            doom_SetPixel((loop-value-1) -1, (loop-value-2) + 64, {_c})
+
+function doom_Refresh(c: number):
+    loop 128 times:
+        loop 128 times:
+            doom_SetPixel((loop-value-1) - 1, (loop-value-2) - 1, {_c})
+
+function doom_Raycast(x: number, y: number, r: number):
+    set {_r} to {_r} - {gameFOV}
+    loop {gameFOV} * 2 times:
+        #wait 1 tick
+        kill all armor stands
+        loop 60 times:
+            if loop-value-2 > 1:
+                set {_i} to loop-value-2 * .25
+                set {_x2} to (sin({_r}) * {_i}) + {_x}
+                set {_y2} to (cos({_r}) * {_i}) + {_y}
+                if block at location({_x2}, 4, {_y2}, world("world")) is not air:
+                    set {_d} to sqrt(({_x2} - {_x})^2 + ({_y2} - {_y})^2)
+                    set {_h} to round(((sin({_r}) * {_d}) * 4) + 20)
+                    if 128 - ((loop-value-1) - 1) = 64:
+                        send actionbar "%{_d}%" to players
+                    #set {_h} to 128 - round((2 / {_d}) * 5)
+                    #set {_d} to {_h}
+                    if {_d} < 4:
+                        set {_c} to 70
+                    else if check [{_d} < 5]->[{_d} > 4]:
+                        set {_c} to 69
+                    else if check [{_d} < 6]->[{_d} > 5]:
+                        set {_c} to 68
+                    else:
+                        set {_c} to 71
+                    loop numbers from {_h} to (128 - {_h}):
+                        doom_SetPixel(128 - ((loop-value-1) - 1), loop-value-3, {_c})
+                    make console execute command "summon armor_stand %{_x2}% 5 %{_y2}% {Marker:1,Small:1}"
+                    exit 1 loop
+        set {_r} to {_r} + 1
+    
+
+every tick:
+    doom_Refresh(119)
+    doom_DrawFloor(15)
+    doom_Raycast({gamePos::1}, {gamePos::2}, {gameRot})
+
+command /play:
+    trigger:
+        spawn a armor stand at player
+        make player ride the last spawned entity
+
+on packet:
+    if event-string = "PacketPlayInSteerVehicle":
+        if packet field "a" > 0:
+            set {gameRot} to {gameRot} + 2
+        if packet field "a" < 0:
+            set {gameRot} to {gameRot} - 2
+        if packet field "b" > 0:
+            set {gamePos::1} to (sin({gameRot}) * .25) + {gamePos::1}
+            set {gamePos::2} to (cos({gameRot}) * .25) + {gamePos::2}
+        if packet field "b" < 0:
+            set {gamePos::1} to (sin(180 + {gameRot}) * .25) + {gamePos::1}
+            set {gamePos::2} to (cos(180 + {gameRot}) * .25) + {gamePos::2}
