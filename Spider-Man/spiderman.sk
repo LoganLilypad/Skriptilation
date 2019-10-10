@@ -1,0 +1,91 @@
+on disconnect:
+    delete {%player%.loc}
+    delete {%player%.locb}
+    delete {%player%.dist}
+    delete {%player%.pitch}
+    delete {%player%.yaw}
+    delete {%player%.force}
+    delete {%player%.x}
+    delete {%player%.y}
+    delete {%player%.z}
+    delete {%player%.i}
+
+on damage:
+    if damage cause is fall:
+        cancel event
+
+command /name [<text>]:
+    trigger:
+        set {txt} to arg-1
+        replace all "&" in {txt} with "ยง"
+        set name of held item to "%{txt}%"
+
+command /web:
+    trigger:
+        make console execute command "/clear %player%"
+        give player 1 cobweb named "&fClimbing Web"
+        give player 1 cobweb named "&fPulling Web"
+        give player 1 cobweb named "&fTrapping Web"
+
+on right click with cobweb:
+    cancel event
+    if name of held item is "&fClimbing Web":
+        delete {%player%.locb}
+        set {%player%.loc} to location of player
+        set {%player%.locb} to location of target block
+        set {%player%.dist} to the distance between {%player%.loc} and {%player%.locb}
+        if {%player%.dist} > 70:
+            make console execute command "/title %player% actionbar [""&cDistance is too large!""]"
+        else if {%player%.dist} == 36:
+            make console execute command "/title %player% actionbar [""&cNothing in sight to grab!""]"
+        else if {%player%.dist} < 5:
+            make console execute command "/title %player% actionbar [""&cDistance is too short!""]"
+        else:
+            make console execute command "/execute %player% ~ ~ ~ playsound entity.bobber.throw master @s ~ ~ ~ 100 0"
+            set {%player%.force} to {%player%.dist} / 8
+            set {%player%.x} to the x location of {%player%.loc}
+            set {%player%.y} to the y location of {%player%.loc}
+            set {%player%.z} to the z location of {%player%.loc}
+            set {%player%.yaw} to player's yaw
+            set {%player%.yaw} to 360 - {%player%.yaw}
+            set {%player%.pitch} to player's pitch
+            set {%player%.pitch} to {%player%.pitch} * -1
+            push the player forward at speed {%player%.force}
+            loop 10 times:
+                wait 1 tick
+                set {%player%.i} to 0
+                loop {%player%.dist} * 2 times:
+                    set {%player%.i} to {%player%.i} + .5
+                    set {_x} to ((sin({%player%.yaw}) * {%player%.i}) + {%player%.x})
+                    set {_y} to ((sin({%player%.pitch}) * {%player%.i}) + {%player%.y})
+                    set {_z} to ((cos({%player%.yaw}) * {%player%.i}) + {%player%.z})
+                    make console execute command "/summon falling_block %{_x}% %{_y}% %{_z}% {Block:""web"",NoGravity:1}"
+            set {%player%.dist} to 36
+    if name of held item is "&fPulling Web":
+        delete {%player%.locb}
+        set {%player%.dist} to 30
+        set {%player%.loc} to location of player
+        set {%player%.locb} to location of target entity
+        set {%player%.dist} to the distance between {%player%.loc} and {%player%.locb}
+        if {%player%.dist} > 20:
+            make console execute command "/title %player% actionbar [""&cTarget is too far!""]"
+        else:
+            set {%player%.force} to {%player%.dist} / 6
+            set {%player%.x} to the x location of {%player%.loc}
+            set {%player%.y} to the y location of {%player%.loc}
+            set {%player%.z} to the z location of {%player%.loc}
+            set {%player%.yaw} to player's yaw
+            set {%player%.yaw} to 360 - {%player%.yaw}
+            set {%player%.pitch} to player's pitch
+            set {%player%.pitch} to {%player%.pitch} * -1
+            push the target entity upwards at speed .5
+            push the target entity (direction from {%player%.locb} to location of player) at speed {%player%.force}
+            loop 10 times:
+                wait 1 tick
+                set {%player%.i} to 0
+                loop {%player%.dist} * 2 times:
+                    set {%player%.i} to {%player%.i} + .5
+                    set {_x} to ((sin({%player%.yaw}) * {%player%.i}) + {%player%.x})
+                    set {_y} to ((sin({%player%.pitch}) * {%player%.i}) + {%player%.y})
+                    set {_z} to ((cos({%player%.yaw}) * {%player%.i}) + {%player%.z})
+                    make console execute command "/summon falling_block %{_x}% %{_y}% %{_z}% {Block:""web"",NoGravity:1}"
