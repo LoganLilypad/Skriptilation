@@ -36,8 +36,6 @@ function doom_Raycast(x: number, y: number, r: number):
                 if block at location({_x2}, 4, {_y2}, world("world")) is not air:
                     set {_d} to sqrt(({_x2} - {_x})^2 + ({_y2} - {_y})^2)
                     set {_h} to round(((sin({_r}) * {_d}) * 4) + 20)
-                    if 128 - ((loop-value-1) - 1) = 64:
-                        send actionbar "%{_d}%" to players
                     #set {_h} to 128 - round((2 / {_d}) * 5)
                     #set {_d} to {_h}
                     if {_d} < 4:
@@ -50,7 +48,6 @@ function doom_Raycast(x: number, y: number, r: number):
                         set {_c} to 71
                     loop numbers from {_h} to (128 - {_h}):
                         doom_SetPixel(128 - ((loop-value-1) - 1), loop-value-3, {_c})
-                    make console execute command "summon armor_stand %{_x2}% 5 %{_y2}% {Marker:1,Small:1}"
                     exit 1 loop
         set {_r} to {_r} + 1
     
