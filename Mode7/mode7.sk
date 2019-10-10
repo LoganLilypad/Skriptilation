@@ -1,0 +1,92 @@
+on load:
+    loop all players:
+        set {snes::%loop-player%::x} to 0
+        set {snes::%loop-player%::y} to 0
+        set {snes::%loop-player%::r} to 0
+    set {snes.n} to .5
+    set {snes.f} to 100
+    set {snes.fovh} to 60
+    set {snes.s} to 10
+    broadcast "&aRendering engine reloaded and reset"
+
+map:
+    set {canvas::%player%} to event-map
+    manage map {canvas::%player%}
+
+command setmap [<text>]:
+    trigger:
+        set {p} to arg-1
+
+function clearCanvas(canv: map, clr: number = 34):
+    loop 128 times:
+        loop 128 times:
+            set map pixle at (loop-value-1) - 1, (loop-value-2) - 1 on map {_canv} to {_clr}
+
+function drawPixel(canv: map, x: number, y: number, clr: number = 119):
+    set map pixle at {_x}, {_y} on map {_canv} to {_clr}
+
+function project(canv: map, p: player):
+    set {_fx1} to {snes::%{_p}%::x} + cos({snes::%{_p}%::r} - {snes.fovh}) * {snes.f}
+    set {_fy1} to {snes::%{_p}%::y} + sin({snes::%{_p}%::r} - {snes.fovh}) * {snes.f}
+
+    set {_nx1} to {snes::%{_p}%::x} + cos({snes::%{_p}%::r} - {snes.fovh}) * {snes.n}
+    set {_ny1} to {snes::%{_p}%::y} + sin({snes::%{_p}%::r} - {snes.fovh}) * {snes.n}
+
+    set {_fx2} to {snes::%{_p}%::x} + cos({snes::%{_p}%::r} + {snes.fovh}) * {snes.f}
+    set {_fy2} to {snes::%{_p}%::y} + sin({snes::%{_p}%::r} + {snes.fovh}) * {snes.f}
+
+    set {_nx2} to {snes::%{_p}%::x} + cos({snes::%{_p}%::r} + {snes.fovh}) * {snes.n}
+    set {_ny2} to {snes::%{_p}%::y} + sin({snes::%{_p}%::r} + {snes.fovh}) * {snes.n}
+
+    loop 64 times:
+        set {_sd} to loop-value-1 / 64
+
+        set {_sx} to ({_fx1} - {_nx1}) / {_sd} + {_nx1}
+        set {_sy} to ({_fy1} - {_ny1}) / {_sd} + {_ny1}
+
+        set {_ex} to ({_fx2} - {_nx2}) / {_sd} + {_nx2}
+        set {_ey} to ({_fy2} - {_ny2}) / {_sd} + {_ny2}
+
+        loop 128 times:
+            set {_sw} to loop-value-2 / 128
+
+            set {_samx} to ({_ex} - {_sx}) * {_sw} + {_sx}
+            set {_samy} to ({_ey} - {_sy}) * {_sw} + {_sy}
+
+            set {_b} to block at location({_samx}, 3, {_samy}, world("world"))
+            if {_b} is stone:
+                set {_clr} to 15
+            else if {_b} is green concrete:
+                set {_clr} to 5
+                if abs(round({_samx}) - {_samx}) > .3:
+                    set {_clr} to 6
+            else if {_b} is red wool:
+                set {_clr} to 19
+            else if {_b} is white wool:
+                set {_clr} to 34
+            else if {_b} is yellow wool:
+                set {_clr} to 121
+            else:
+                set {_clr} to 119
+            set map pixle at (loop-value-2) - 1, (loop-value-1) + 64 on map {_canv} to {_clr}
+
+every tick:
+    clearCanvas({canvas}, 119)
+    project({canvas})
+    loop all players:
+        clearCanvas({canvas::%loop-player%}, 119)
+        project({canvas::%loop-player%}, loop-player)
+
+on packet:
+    if event-string = "PacketPlayInSteerVehicle":
+        if packet field "a" > 0:
+            set {snes::%player%::r} to {snes::%player%::r} - 2.5
+        if packet field "a" < 0:
+            set {snes::%player%::r} to {snes::%player%::r} + 2.5
+        if packet field "b" > 0:
+            set {snes::%player%::x} to {snes::%player%::x} + (sin(450 - {snes::%player%::r}) * .25)
+            set {snes::%player%::y} to {snes::%player%::y} + (cos(450 - {snes::%player%::r}) * .25)
+            #set {snes.px} to {snes.px} + .5
+        if packet field "b" < 0:
+            set {snes::%player%::x} to {snes::%player%::x} - (sin(450 - {snes::%player%::r}) * .25)
+            set {snes::%player%::y} to {snes::%player%::y} - (cos(450 - {snes::%player%::r}) * .25)
