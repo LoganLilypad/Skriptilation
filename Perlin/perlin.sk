@@ -1,0 +1,117 @@
+function decToBin(n: integer) :: objects:
+    add 0, 0, 0, 0, 0, 0, 0, 0, 0 and 0 to {_o::*}
+    
+    set {_i} to 0
+    while {_n} > 0:
+        set {_o::%{_i}%} to mod({_n}, 2)
+        set {_n} to floor({_n} / 2)
+        add 1 to {_i}
+    
+    return {_o::*}
+
+function binToDec(n: objects) :: integer:
+    set {_m::*} to 1, 2, 4, 8, 16, 32, 64, 128, 256 and 512
+    set {_o} to 0
+    loop {_n::*}:
+        if loop-value = 1:
+            add {_m::%loop-index%} to {_o}
+    
+    return {_o}
+
+function bitAnd(x: integer, y: integer) :: integer:
+    set {_x::*} to decToBin({_x})
+    set {_y::*} to decToBin({_y})
+
+    loop {_x::*}:
+        if loop-value + {_y::%loop-index%} = 2:
+            add 1 to {_o::*}
+        else:
+            add 0 to {_o::*}
+    
+    return binToDec({_o::*})
+
+function perlinShuffle(x: objects) :: objects:
+    loop size of {_x::*} times:
+        set {_i} to round((a random number between 0 and 1) * (loop-value - 1))
+        set {_t} to {_x::%loop-value%}
+        set {_x::%loop-value%} to {_x::%{_i}%}
+        set {_x::%{_i}%} to {_t}
+    
+    return {_x::*}
+
+function perlinPermuation() :: objects:
+    add (numbers between 0 and 255) to {_p::*}
+    
+    set {_p::*} to perlinShuffle({_p::*})
+
+    add {_p::*} to {_p::*}
+
+    return {_p::*}
+
+function perlinConstantVector(x: number) :: vector:
+    set {_h} to bitAnd(round({_x}), 3)
+    
+    if {_h} = 0:
+        return vector 1, 1, 0
+    else if {_h} = 1:
+        return vector -1, 1, 0
+    else if {_h} = 2:
+        return vector -1, -1, 0
+    else:
+        return vector 1, -1, 0
+
+function perlinFade(x: number) :: number:
+    return ((6 * {_x} - 15) * {_x} + 10) * {_x} * {_x} * {_x}
+
+function perlinLinearInterp(x: number, a: number, b: number) :: number:
+    return {_a} + {_x} * ({_b} - {_a})
+
+function perlinNoise(x: number, y: number) :: number:
+
+    set {_x2} to bitAnd(floor({_x}), 255)
+    set {_y2} to bitAnd(floor({_y}), 255)
+
+    set {_xf} to {_x} - floor({_x})
+    set {_yf} to {_y} - floor({_y})
+
+    set {_tr} to vector {_xf} - 1, {_yf} - 1, 0
+    set {_tl} to vector {_xf}, {_yf} - 1, 0
+    set {_br} to vector {_xf} - 1, {_yf}, 0
+    set {_bl} to vector {_xf}, {_yf}, 0
+
+    set {_xv} to {_x2} + 1
+    set {_yv} to {_y2} + 1
+
+    set {_av} to {perlinNoise::%{_xv}%} + {_yv} + 1
+    set {_bv} to {perlinNoise::%{_x2}%} + {_yv} + 1
+    set {_cv} to {perlinNoise::%{_xv}%} + {_y2}
+    set {_dv} to {perlinNoise::%{_x2}%} + {_y2}
+
+    set {_vtr} to {perlinNoise::%{_av}%}
+    set {_vtl} to {perlinNoise::%{_bv}%}
+    set {_vbr} to {perlinNoise::%{_cv}%}
+    set {_vbl} to {perlinNoise::%{_dv}%}
+
+    set {_dtr} to {_tr} dot perlinConstantVector({_vtr})
+    set {_dtl} to {_tl} dot perlinConstantVector({_vtl})
+    set {_dbr} to {_br} dot perlinConstantVector({_vbr})
+    set {_dbl} to {_bl} dot perlinConstantVector({_vbl})
+
+    set {_u} to perlinFade({_xf})
+    set {_v} to perlinFade({_yf})
+
+    return perlinLinearInterp({_u}, perlinLinearInterp({_v}, {_dbl}, {_dtl}), perlinLinearInterp({_v}, {_dbr}, {_dtr}))
+
+command /perlin <num> <num>:
+    trigger:
+        set {perlinNoise::*} to perlinPermuation()
+        console command "/kill @e[type=minecraft:armor_stand]"
+        loop arg-1 times:
+            wait 1 tick
+            loop arg-2 times:
+                set {_x} to (loop-value-1 * .01)
+                set {_y} to (loop-value-2 * .01)
+                set {_h} to perlinNoise({_x}, {_y})
+                set {_h} to {_h} + 1 / 2
+                set block at location(loop-value-1, {_h} * 20, loop-value-2, world "world") to grass
+        broadcast "&aDone!"
