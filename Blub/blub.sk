@@ -1,0 +1,143 @@
+on load:
+    set {blub::sim::gravity} to vector 0, -9.8, 0
+    set {blub::sim::stiffness} to .1
+    set {blub::sim::stiffnessnear} to .01
+    set {blub::sim::restdensity} to .01
+    set {blub::sim::timestep} to .05
+    set {blub::sim::intr} to 1.5
+
+command /gen:
+    trigger:
+        clear {blub::particles::*}
+        set {_i} to 1
+        loop 5 times:
+            loop 3 times:
+                set {blub::particles::%{_i}%::pos} to vector loop-value-1 + 20, loop-value-2 + 20, 0
+                set {blub::particles::%{_i}%::opos} to vector 0, 0, 0
+                set {blub::particles::%{_i}%::vel} to vector 0, 0, 0
+                add 1 to {_i}
+
+command /testsim <int>:
+    trigger:
+        clear {blub::particles::*}
+        set {_i} to 1
+        loop 5 times:
+            loop 5 times:
+                set {blub::particles::%{_i}%::pos} to vector loop-value-1 + 20, loop-value-2 + 20, 0
+                set {blub::particles::%{_i}%::opos} to vector 0, 0, 0
+                set {blub::particles::%{_i}%::vel} to vector 0, 5, 0
+                add 1 to {_i}
+
+        loop arg-1 times:
+            wait 1 tick
+            loop size of {blub::particles::*} times:
+                set {blub::particles::%loop-value-2%::opos} to {blub::particles::%loop-value-2%::pos}
+
+                blubApplyForces(loop-value-2, {blub::sim::timestep})
+                #broadcast "&a%{blub::particles::%loop-value%::vel}%"
+
+                set {blub::particles::%loop-value-2%::pos} to vector x of {blub::particles::%loop-value-2%::pos} + x of {blub::particles::%loop-value-2%::vel} * {blub::sim::timestep}, y of {blub::particles::%loop-value-2%::pos} + y of {blub::particles::%loop-value-2%::vel} * {blub::sim::timestep}, 0
+
+                set {_n::*} to blubGetNeighbors(loop-value-2, {blub::sim::intr})
+
+                #broadcast "&c%{_n::*}%"
+
+                blubUpdatePressure(loop-value-2)
+
+                #broadcast "&c%{blub::particles::%loop-value-2%::pres}% %{blub::particles::%loop-value-2%::presn}%"
+
+                blubRelax(loop-value-2, {_n::*}, {blub::sim::timestep})
+
+                blubConstraint(loop-value-2)
+        
+            console command "/kill @e[type=armor_stand]"
+
+            loop size of {blub::particles::*} times:
+                set {_xy} to {blub::particles::%loop-value-2%::pos}
+                #broadcast "&b%{_xy}%"
+                spawn 1 armor stand at location(x of {_xy}, y of {_xy}, 0, world "world") with nbt "{NoGravity:1,Small:1,Marker:1,Invisible:1,ArmorItems:[{},{},{},{id:""diamond_block"",Count:1b}]}"
+
+
+function blubApplyForces(i: num, n: num):
+    set {blub::particles::%{_i}%::vel} to vector x of {blub::particles::%{_i}%::vel} + x of {blub::sim::gravity} * {blub::sim::timestep}, y of {blub::particles::%{_i}%::vel} + y of {blub::sim::gravity} * {blub::sim::timestep}, 0
+
+function blubGradient(i: num, n: num) :: num:
+    set {_p} to {blub::particles::%{_i}%::pos}
+    set {_pn} to {blub::particles::%{_n}%::pos}
+
+    set {_d} to sqrt((x of {_p} - x of {_pn})^2 + (y of {_p} - y of {_pn})^2)
+
+    if {_d} > {blub::sim::intr}^2:
+        return 0
+    
+    return 1 - sqrt({_d}) / {blub::sim::intr}
+
+function blubGetNeighbors(i: num, r: num) :: objects:
+    loop size of {blub::particles::*} times:
+        set {_d} to sqrt((x of {blub::particles::%loop-value%::pos} - x of {blub::particles::%{_i}%::pos})^2 + (y of {blub::particles::%loop-value%::pos} - y of {blub::particles::%{_i}%::pos})^2)*5
+        if {_d} <= {_r}^2:
+            if loop-value = {_i}:
+                continue
+            
+            set {_g} to blubGradient({_i}, loop-value)
+
+
+            if {_g} = 0:
+                continue
+            
+            set {blub::particles::%{_i}%::g::%loop-value%::dis} to {_g}
+            set {blub::particles::%{_i}%::g::%loop-value%::wai} to loop-value
+            add loop-value to {_n::*}
+
+    return {_n::*}
+
+function blubUpdatePressure(i: num):
+    set {_d} to 0
+    set {_nd} to 0
+
+    loop size of {blub::particles::%{_i}%::g::*} times:
+        set {_g} to {blub::particles::%{_i}%::g::%loop-value%::dis}
+
+        add {_g} * {_g} to {_d}
+
+        add {_g} * {_g} * {_g} to {_nd}
+
+    set {blub::particles::%{_i}%::pres} to {blub::sim::stiffness} * ({_d} - {blub::sim::restdenisy}) * 10
+    set {blub::particles::%{_i}%::presn} to {blub::sim::stiffnessnear} * {_nd} * 10
+
+function blubRelax(i: num, n: objects, dt: num):
+    loop {_n::*}:
+        set {_g} to loop-value
+        set {_m} to ({blub::particles::%{_i}%::pres} * {blub::particles::%{_i}%::g::%{_g}%::dis} + {blub::particles::%{_i}%::presn} * {blub::particles::%{_i}%::g::%{_g}%::dis} * {blub::particles::%{_i}%::g::%{_g}%::dis}) * 1
+        
+        set {_dir} to vector x of {blub::particles::%{_g}%::pos} - x of {blub::particles::%{_i}%::pos}, y of {blub::particles::%{_g}%::pos} - y of {blub::particles::%{_i}%::pos}, 0
+        #set {_f} to {_dir} ** {_m}
+        set {_f} to vector x of {_dir} * {_m}, y of {_dir} * {_m}, 0
+
+        set {_tmp} to {blub::sim::timestep}
+
+        #set {_d} to {_f} ** {_tmp}
+        set {_d} to vector x of {_f} * {_tmp}, y of {_f} * {_tmp}, 0
+
+        #set {_idontknowwhyihavethisvariablebutiterrorsifidont} to -.5
+        #set {_idontknowwhyihavethisvariablebutiterrorsifidont2} to .5
+
+        #broadcast "&a%{blub::particles::%{_i}%::pos}%"
+
+        #set {blub::particles::%{_i}%::pos} to ({_d} ** {_idontknowwhyihavethisvariablebutiterrorsifidont}) ++ {blub::particles::%{_i}%::pos}
+        set {blub::particles::%{_i}%::pos} to vector (x of {_d} * -.5) + x of {blub::particles::%{_i}%::pos}, (y of {_d} * -.5) + y of {blub::particles::%{_i}%::pos}, 0
+
+        #broadcast "&b%{blub::particles::%{_i}%::pos}%"
+
+        #set {blub::particles::%{_g}%::pos} to ({_d} ** {_idontknowwhyihavethisvariablebutiterrorsifidont2}) ++ {blub::particles::%{_g}%::pos}
+        set {blub::particles::%{_g}%::pos} to vector (x of {_d} * .5) + x of {blub::particles::%{_g}%::pos}, (y of {_d} * .5) + y of {blub::particles::%{_g}%::pos}, 0
+
+function blubConstraint(i: num):
+    if y of {blub::particles::%{_i}%::pos} < 12:
+        set y of {blub::particles::%{_i}%::pos} to 12
+    if x of {blub::particles::%{_i}%::pos} > 30:
+        set x of {blub::particles::%{_i}%::pos} to 20
+    if x of {blub::particles::%{_i}%::pos} < 20:
+        set x of {blub::particles::%{_i}%::pos} to 20
+    #if block at location(x of {blub::particles::%{_i}%::pos}, y of {blub::particles::%{_i}%::pos} - 1, 0) is not air:
+    #    set y of {blub::particles::%{_i}%::pos} to y of {blub::particles::%{_i}%::pos} + 1
